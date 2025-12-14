@@ -1,0 +1,246 @@
+/* ==========================
+   EDIT PAGE
+========================== */
+.page-edit {
+    background: #f8f9fa;
+}
+
+.page-edit .edit-container {
+    max-width: 700px;
+}
+
+.page-edit .edit-card {
+    max-width: 500px;
+    border-radius: 10px;
+}
+
+.page-edit .edit-title {
+    font-weight: 600;
+}
+
+.page-edit .edit-image {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+.page-edit .edit-save-btn {
+    padding: 10px;
+    font-weight: 500;
+}
+
+/* =======================
+   INDEX PAGE
+======================= */
+.page-index {
+    background: #f8fafc;
+    font-family: system-ui;
+}
+
+/* Hộp chứa bảng */
+.index-box {
+    background: white;
+    border-radius: 10px;
+    padding: 25px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.05);
+}
+
+/* Image in the table */
+.index-food-img {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+/* Add button */
+.index-btn-add {
+    background: #198754;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    transition: .2s;
+}
+.index-btn-add:hover {
+    background: #157347;
+    color: white;
+}
+
+/* Search bar */
+.index-search {
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    padding: 6px 10px;
+    width: 220px;
+}
+
+/* =======================
+   LOGIN PAGE
+======================= */
+.page-login {
+    background-color: #f9f3fb;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Wrap */
+.login-container {
+    width: 700px;
+    display: flex;
+    border-radius: 12px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+/* LEFT */
+.login-left {
+    width: 50%;
+    background-color: #7a1fa2;
+    color: white;
+    padding: 40px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-register-btn {
+    color: white;
+    border: 2px solid white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    text-decoration: none;
+    margin-top: 15px;
+}
+
+/* RIGHT */
+.login-right {
+    width: 50%;
+    padding: 40px;
+}
+
+.login-title {
+    color: #7a1fa2;
+    margin-bottom: 20px;
+}
+
+.login-form {
+    width: 100%;
+}
+
+.login-input {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 10px;
+    background-color: #7a1fa2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.login-message {
+    color: #d00;
+    margin-bottom: 10px;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* =======================
+   REGISTER PAGE
+======================= */
+.page-register {
+    background-color: #f9f3fb;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Wrap */
+.register-container {
+    width: 700px;
+    display: flex;
+    border-radius: 12px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+/* LEFT */
+.register-left {
+    width: 50%;
+    background-color: #7a1fa2;
+    color: white;
+    padding: 40px;
+    text-align: center;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.register-login-btn {
+    color: white;
+    border: 2px solid white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    text-decoration: none;
+    margin-top: 15px;
+}
+
+/* RIGHT */
+.register-right {
+    width: 50%;
+    padding: 40px;
+}
+
+.register-title {
+    color: #7a1fa2;
+    margin-bottom: 20px;
+}
+
+.register-form {
+    width: 100%;
+}
+
+.register-input {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.register-btn {
+    width: 100%;
+    padding: 10px;
+    background-color: #7a1fa2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.register-message {
+    color: #d00;
+    margin-bottom: 10px;
+    font-weight: 600;
+    text-align: center;
+}
