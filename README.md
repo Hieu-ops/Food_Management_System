@@ -41,7 +41,7 @@ The system allows **Administrators (Admin)** to manage food items, users, orders
 
 ## Main Features
 
-### 5.1. Admin Features
+### Admin Features
 
 - Secure admin login.
 - **Food Management (CRUD):**
@@ -61,7 +61,7 @@ The system allows **Administrators (Admin)** to manage food items, users, orders
 
 ---
 
-### 5.2. User Features
+### User Features
 
 - User registration.
 - User login.
