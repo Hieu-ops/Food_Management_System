@@ -97,7 +97,7 @@ This approach helps ensure **data security** and **system integrity**.
 
 - **Scope:** Academic project for learning purposes
 - **Status:** Almost completed according to course requirements
-- **Link website:** [**Food Management System**](foodmanagementsystem.ct.ws)
+- [**Food Management System**](foodmanagementsystem.ct.ws)
 
 ---
 
