@@ -5,34 +5,6 @@ include("../connection.php");
 $message = null;
 $message_type = "success";
 
-// Xóa người dùng và các bản ghi liên quan
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["delete_user"])) {
-    $userId = intval($_POST["delete_user"]);
-
-    // Xóa các bản ghi liên quan đến đơn hàng của user
-    $ordersRes = $conn->prepare("SELECT id FROM orders WHERE user_id = ?");
-    $ordersRes->bind_param("i", $userId);
-    $ordersRes->execute();
-    $orders = $ordersRes->get_result()->fetch_all(MYSQLI_ASSOC);
-    $ordersRes->close();
-
-    foreach ($orders as $o) {
-        $oid = intval($o["id"]);
-        $conn->query("DELETE FROM order_status_logs WHERE order_id = $oid");
-        $conn->query("DELETE FROM order_items WHERE order_id = $oid");
-        $conn->query("DELETE FROM payments WHERE order_id = $oid");
-        $conn->query("DELETE FROM admin_actions WHERE order_id = $oid");
-    }
-    $conn->query("DELETE FROM orders WHERE user_id = $userId");
-
-    $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
-    $stmt->bind_param("i", $userId);
-    $stmt->execute();
-    $stmt->close();
-
-    $message = "Đã xóa người dùng #$userId và dữ liệu liên quan.";
-}
-
 $users = [];
 // Một số DB chỉ có cột username, không có name/phone/email
 $userRes = $conn->query("SELECT id, username, created_at FROM users ORDER BY created_at DESC");
