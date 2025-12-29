@@ -1,11 +1,6 @@
+
 <?php
 include("../connection.php");
-
-// Require auth token
-if (!isset($_COOKIE["auth_token"])) {
-    header("Location: ../login.php");
-    exit();
-}
 
 $token = $_COOKIE["auth_token"];
 
