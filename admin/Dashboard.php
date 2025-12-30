@@ -17,6 +17,17 @@ function table_exists(mysqli $conn, string $table): bool {
     return $exists;
 }
 
+function column_exists(mysqli $conn, string $table, string $column): bool {
+    $stmt = $conn->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ? LIMIT 1");
+    if (!$stmt) return false;
+    $stmt->bind_param("ss", $table, $column);
+    $stmt->execute();
+    $stmt->store_result();
+    $exists = $stmt->num_rows === 1;
+    $stmt->close();
+    return $exists;
+}
+
 function status_class($status) {
     $map = [
         "Pending" => "dash-badge warn",
@@ -30,7 +41,7 @@ function status_class($status) {
 // Update order status and log
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["order_id"])) {
     if (!table_exists($conn, "orders")) {
-        $ordersError = "B?ng orders kh„ng t?n t?i. Vui l•ng t?o c…u trúc database tr“c khi c?p nh?t.";
+        $ordersError = "Bang orders khonng ton tai. Vui long tao cau truc database truoc khi cap nhap.";
     }
 
     $orderId = intval($_POST["order_id"]);
@@ -56,12 +67,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["order_id"])) {
         $log->execute();
         $log->close();
 
-        // admin action
-        $act = $conn->prepare("INSERT INTO admin_actions (admin_id, order_id, action, action_detail, created_at) VALUES (?, ?, 'update_status', ?, NOW())");
-        $detail = "Set status to $newStatus";
-        $act->bind_param("iis", $current_admin["id"], $orderId, $detail);
-        $act->execute();
-        $act->close();
+        // admin action (best-effort; skip if FK/admin table not ready)
+        try {
+            if (table_exists($conn, "admin_actions") && isset($current_admin["id"])) {
+                $act = $conn->prepare("INSERT INTO admin_actions (admin_id, order_id, action, action_detail, created_at) VALUES (?, ?, 'update_status', ?, NOW())");
+                $detail = "Set status to $newStatus";
+                $act->bind_param("iis", $current_admin["id"], $orderId, $detail);
+                $act->execute();
+                $act->close();
+            }
+        } catch (Throwable $e) {
+            // ignore logging errors to avoid breaking status update when FK/admin table is not set up
+        }
 
         $message = "Đã cập nhật trạng thái đơn #$orderId.";
     }
@@ -79,10 +96,18 @@ $paymentsExists = table_exists($conn, "payments");
 if (!$paymentsExists) {
     $paymentsHint = "Payments table has not been created yet; update the schema before showing payment details.";
 }
+$hasUserPhone = column_exists($conn, "users", "phone");
+$hasUserEmail = column_exists($conn, "users", "email");
+$customerField = column_exists($conn, "users", "username") ? "u.username" : "u.id";
 $columns = "
     o.id, o.order_code, o.total_amount, o.status, o.order_type, o.address, o.created_at,
+<<<<<<< Updated upstream
     u.name AS customer_name, u.phone, u.email,
     " . ($paymentsExists
+=======
+    $customerField AS customer_name, " . ($hasUserPhone ? "u.phone" : "NULL") . " AS phone, " . ($hasUserEmail ? "u.email" : "NULL") . " AS email,
+" . ($paymentsExists
+>>>>>>> Stashed changes
         ? "p.status AS payment_status, p.method, p.amount AS paid_amount"
         : "NULL AS payment_status, NULL AS method, NULL AS paid_amount"
     );
