@@ -82,7 +82,7 @@ if (!$paymentsExists) {
 $columns = "
     o.id, o.order_code, o.total_amount, o.status, o.order_type, o.address, o.created_at,
     u.name AS customer_name, u.phone, u.email,
-" . ($paymentsExists
+    " . ($paymentsExists
         ? "p.status AS payment_status, p.method, p.amount AS paid_amount"
         : "NULL AS payment_status, NULL AS method, NULL AS paid_amount"
     );
