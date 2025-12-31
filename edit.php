@@ -1,9 +1,10 @@
 <?php
-include("validation.php");
-include("connection.php");
+// Restrict to admin only
+include("admin/check_admin.php");
+include_once("connection.php");
 
 if (!isset($_GET["id"])) {
-    header("Location: index.php");
+    header("Location: admin/menu.php");
     exit();
 }
 
@@ -22,6 +23,7 @@ if (isset($_POST["update"])) {
     $category = trim($_POST["category"]);
     $description = trim($_POST["description"]);
     $imagePath = $food["image_path"];
+    $isAvailable = isset($_POST["is_available"]) ? (int)$_POST["is_available"] : (int)($food["is_available"] ?? 0);
 
     // Upload ảnh mới
     if (!empty($_FILES["image"]["name"])) {
@@ -42,12 +44,12 @@ if (isset($_POST["update"])) {
     }
 
     $stmt = $conn->prepare(
-        "UPDATE food SET name=?, price=?, category=?, description=?, image_path=? WHERE id=?"
+        "UPDATE food SET name=?, price=?, category=?, description=?, image_path=?, is_available=? WHERE id=?"
     );
-    $stmt->bind_param("sdsssi", $name, $price, $category, $description, $imagePath, $id);
+    $stmt->bind_param("sdsssii", $name, $price, $category, $description, $imagePath, $isAvailable, $id);
     $stmt->execute();
 
-    header("Location: index.php?updated=1");
+    header("Location: admin/menu.php?updated=1");
     exit();
 }
 ?>
@@ -70,7 +72,7 @@ if (isset($_POST["update"])) {
 
 <div class="container py-5 edit-container">
 
-    <a href="index.php" class="btn btn-secondary mb-3">← Back</a>
+    <a href="admin/menu.php" class="btn btn-secondary mb-3">← Back</a>
 
     <div class="card p-4 mx-auto edit-card">
 
@@ -107,6 +109,12 @@ if (isset($_POST["update"])) {
 
             <label class="form-label">Change Image</label>
             <input type="file" name="image" class="form-control mb-4">
+
+            <label class="form-label">Status</label>
+            <select name="is_available" class="form-select mb-4">
+                <option value="1" <?= !empty($food["is_available"]) ? "selected" : "" ?>>Đang bán</option>
+                <option value="0" <?= empty($food["is_available"]) ? "selected" : "" ?>>Ngừng bán</option>
+            </select>
 
             <button type="submit" name="update" class="btn btn-primary w-100 edit-save-btn">
                 Save Changes
