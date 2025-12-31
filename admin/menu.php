@@ -42,6 +42,9 @@ if (isset($_GET["delete"])) {
         }
     }
 
+    // Remove order items referencing this food to satisfy FK
+    $conn->query("DELETE FROM order_items WHERE food_id = $id");
+
     $conn->query("DELETE FROM food WHERE id=$id");
 
     header("Location: menu.php?deleted=1");
