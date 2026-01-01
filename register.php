@@ -1,94 +1,72 @@
 <?php
 include("connection.php");
 $message = "";
-$role = "user";
-$selectedRole = $_POST['role'] ?? 'user';
+
+function ensure_users_phone_column(mysqli $conn): void {
+    try {
+        $sql = "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'phone' LIMIT 1";
+        $res = $conn->query($sql);
+        $exists = $res && $res->num_rows > 0;
+        if (!$exists) {
+            $conn->query("ALTER TABLE users ADD COLUMN phone VARCHAR(32) NULL");
+        }
+    } catch (Throwable $e) {
+        // best effort; do not block registration
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-$role = $selectedRole === 'admin' ? 'admin' : 'user';
-
-  if ($role === 'admin') {
     $username = trim($_POST['username'] ?? '');
-    $passwordRaw = $_POST['password'] ?? '';
-
-    if ($username === '' || $passwordRaw === '') {
-      $message = "Vui lòng nhập username và mật khẩu cho admin.";
-      goto render;
-    }
-
-    $stmt = $conn->prepare("SELECT id FROM admin WHERE username = ? LIMIT 1");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $stmt->store_result();
-
-    if ($stmt->num_rows > 0) {
-      $message = "Username admin đã tồn tại.";
-    } else {
-      $hash = password_hash($passwordRaw, PASSWORD_DEFAULT);
-      $ins = $conn->prepare("INSERT INTO admin (username, password, role, created_at) VALUES (?, ?, 'admin', NOW())");
-      $ins->bind_param("ss", $username, $hash);
-      $ins->execute();
-      $ins->close();
-      $message = "Tạo tài khoản admin thành công. <a href='login.php'>Đăng nhập</a>";
-    }
-    $stmt->close();
-
-  } else {
-    $name = trim($_POST['name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
+    $rawPassword = $_POST['password'] ?? '';
     $phone = trim($_POST['phone'] ?? '');
-    $passwordRaw = $_POST['password'] ?? '';
 
-    if ($name === '' || $email === '' || $passwordRaw === '') {
-      $message = "Vui lòng nhập đầy đủ họ tên, email và mật khẩu.";
+    if ($username === '' || $rawPassword === '') {
+        $message = "Vui long nhap du thong tin.";
     } else {
-      // Check duplicate email
-      $stmt = $conn->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
-      $stmt->bind_param("s", $email);
-      $stmt->execute();
-      $stmt->store_result();
+        $password = password_hash($rawPassword, PASSWORD_DEFAULT);
+        ensure_users_phone_column($conn);
 
-      if ($stmt->num_rows > 0) {
-        $message = "Email đã tồn tại.";
-      } else {
-        // Nếu phone rỗng thì lưu NULL để tránh trùng key rỗng
-        if ($phone === '') {
-          $phone = null;
+        $check = $conn->prepare("SELECT id FROM users WHERE username = ?");
+        $check->bind_param("s", $username);
+        $check->execute();
+        $checkRes = $check->get_result();
+
+        if ($checkRes && $checkRes->num_rows > 0) {
+            $message = "Tai khoan da ton tai!";
         } else {
-          // Check duplicate phone nếu có nhập
-          $pstmt = $conn->prepare("SELECT id FROM users WHERE phone = ? LIMIT 1");
-          $pstmt->bind_param("s", $phone);
-          $pstmt->execute();
-          $pstmt->store_result();
-          if ($pstmt->num_rows > 0) {
-            $message = "Số điện thoại đã tồn tại.";
-            $pstmt->close();
-            $stmt->close();
-            goto render;
-          }
-          $pstmt->close();
-        }
+            $hasPhone = false;
+            try {
+                $colCheck = $conn->query("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'phone' LIMIT 1");
+                $hasPhone = $colCheck && $colCheck->num_rows > 0;
+            } catch (Throwable $e) {
+                $hasPhone = false;
+            }
 
-        $hash = password_hash($passwordRaw, PASSWORD_DEFAULT);
-        $ins = $conn->prepare("INSERT INTO users (name, phone, email, password, created_at) VALUES (?, ?, ?, ?, NOW())");
-        $ins->bind_param("ssss", $name, $phone, $email, $hash);
-        $ins->execute();
-        $message = "Đăng ký thành công. <a href='login.php'>Đăng nhập</a>";
-        $ins->close();
-      }
-      $stmt->close();
+            if ($hasPhone) {
+                $stmt = $conn->prepare("INSERT INTO users (username, password, phone) VALUES (?, ?, ?)");
+                $stmt->bind_param("sss", $username, $password, $phone);
+            } else {
+                $stmt = $conn->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+                $stmt->bind_param("ss", $username, $password);
+            }
+
+            $stmt->execute();
+            $stmt->close();
+            $message = "Dang ky thanh cong. <a href='login.php'>Dang nhap</a>";
+        }
     }
-  }
 }
-render:
 ?>
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Register</title>
 
+  <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Style chung -->
   <link rel="stylesheet" href="style.css">
 </head>
 
@@ -110,21 +88,8 @@ render:
     <?php endif; ?>
 
     <form method="POST" class="register-form">
-      <div class="mb-2 d-flex gap-2">
-        <label><input type="radio" name="role" value="user" <?= $role === 'user' ? 'checked' : '' ?>> User</label>
-        <label><input type="radio" name="role" value="admin" <?= $role === 'admin' ? 'checked' : '' ?>> Admin</label>
-      </div>
-
-      <div id="user-fields" style="<?= $role === 'user' ? '' : 'display:none;' ?>">
-        <input type="text" name="name" placeholder="Full name" class="register-input" value="<?= htmlspecialchars($_POST['name'] ?? '') ?>">
-        <input type="email" name="email" placeholder="Email" class="register-input" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
-        <input type="text" name="phone" placeholder="Phone (optional)" class="register-input" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>">
-      </div>
-
-      <div id="admin-fields" style="<?= $role === 'admin' ? '' : 'display:none;' ?>">
-        <input type="text" name="username" placeholder="Admin username" class="register-input" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>">
-      </div>
-
+      <input type="text" name="username" placeholder="Username" class="register-input" required>
+      <input type="text" name="phone" placeholder="Phone number" class="register-input">
       <input type="password" name="password" placeholder="Password" class="register-input" required>
       <button type="submit" class="register-btn">REGISTER</button>
     </form>
@@ -132,19 +97,5 @@ render:
 
 </div>
 
-<script>
-const roleRadios = document.querySelectorAll('input[name="role"]');
-const userFields = document.getElementById('user-fields');
-const adminFields = document.getElementById('admin-fields');
-roleRadios.forEach(r => r.addEventListener('change', () => {
-  if (r.value === 'admin' && r.checked) {
-    userFields.style.display = 'none';
-    adminFields.style.display = '';
-  } else if (r.value === 'user' && r.checked) {
-    userFields.style.display = '';
-    adminFields.style.display = 'none';
-  }
-}));
-</script>
 </body>
 </html>
