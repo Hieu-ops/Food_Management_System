@@ -11,7 +11,7 @@ function ensure_users_phone_column(mysqli $conn): void {
             $conn->query("ALTER TABLE users ADD COLUMN phone VARCHAR(32) NULL");
         }
     } catch (Throwable $e) {
-        // best effort; do not block registration
+    
     }
 }
 
