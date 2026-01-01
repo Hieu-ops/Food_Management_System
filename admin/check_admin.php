@@ -1,24 +1,19 @@
-
 <?php
-include("../connection.php");
+declare(strict_types=1);
+require_once __DIR__ . '/../connection.php';
 
-$token = $_COOKIE["auth_token"];
+function redirect(string $to): void { header("Location: $to"); exit; }
 
-$stmt = $conn->prepare("SELECT * FROM users WHERE auth_token = ? LIMIT 1");
+$token = isset($_COOKIE['auth_token']) && is_string($_COOKIE['auth_token']) ? trim($_COOKIE['auth_token']) : '';
+if ($token === '') redirect('../login.php');
+
+$stmt = $conn->prepare("SELECT username FROM users WHERE auth_token = ? LIMIT 1");
+if (!$stmt) redirect('../login.php');
+
 $stmt->bind_param("s", $token);
 $stmt->execute();
-$result = $stmt->get_result();
+$user = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-if ($result->num_rows !== 1) {
-    header("Location: ../login.php");
-    exit();
-}
-
-$current_user = $result->fetch_assoc();
-
-// Only allow admin username
-if (strtolower($current_user["username"]) !== "admin") {
-    header("Location: ../index.php");
-    exit();
-}
-?>
+if (!$user) redirect('../login.php');
+if (strcasecmp((string)$user['username'], 'admin') !== 0) redirect('../index.php');
