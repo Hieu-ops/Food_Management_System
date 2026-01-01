@@ -24,7 +24,7 @@ if ($order) {
     }
 }
 
-$serviceMethods = ["Cash", "Card", "Wallet"];
+$serviceMethods = ["Cash", "Banking"];
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $postedId = intval($_POST["order_id"] ?? 0);
@@ -56,13 +56,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $pIns->close();
         }
         $pCheck->close();
+        // Mark order completed after payment
+        $updOrder = $conn->prepare("UPDATE orders SET status='Completed' WHERE id=?");
+        if ($updOrder) {
+            $updOrder->bind_param("i", $orderId);
+            $updOrder->execute();
+            $updOrder->close();
+        }
         $paymentDetails = fetch_payment_summary($conn, $orderId);
         $message = "Thanh toán đơn hàng thành công.";
         $message_type = "success";
     }
 }
 
-$selectedMethod = $paymentDetails["method"] ?? "Cash";
+$selectedMethod = $paymentDetails["method"] ?? ($_GET["method"] ?? "Cash");
 
 ?>
 <!DOCTYPE html>
@@ -87,48 +94,9 @@ $selectedMethod = $paymentDetails["method"] ?? "Cash";
             </div>
         </header>
 
-        <?php if ($message): ?>
+<?php if ($message): ?>
             <?php if ($paymentDetails): ?>
                 <?php $paidAtLabel = !empty($paymentDetails["paid_at"]) ? date("H:i d/m/Y", strtotime($paymentDetails["paid_at"])) : ""; ?>
-                <div class="payment-success-shell">
-                    <div class="payment-success-card">
-                        <div class="payment-success-icon">✓</div>
-                        <div class="payment-success-body">
-                            <p class="payment-success-title">Thanh toán hoàn tất</p>
-                            <p class="payment-success-sub"><?= htmlspecialchars($message) ?></p>
-                            <div class="payment-success-grid">
-                                <div>
-                                    <span class="payment-success-label">Đơn hàng</span>
-                                    <strong><?= htmlspecialchars($order["order_code"] ?? ("OD-" . $orderId)) ?></strong>
-                                </div>
-                                <div>
-                                    <span class="payment-success-label">Tổng tiền</span>
-                                    <strong><?= number_format($order["total_amount"] ?? 0) ?>đ</strong>
-                                </div>
-                                <div>
-                                    <span class="payment-success-label">Phương thức</span>
-                                    <strong><?= htmlspecialchars($paymentDetails["method"] ?? "N/A") ?></strong>
-                                </div>
-                                <div>
-                                    <span class="payment-success-label">Trạng thái</span>
-                                    <strong><?= htmlspecialchars($paymentDetails["status"] ?? "Paid") ?></strong>
-                                </div>
-                                <div>
-                                    <span class="payment-success-label">Thời gian</span>
-                                    <strong><?= htmlspecialchars($paidAtLabel ?: "Vừa xong") ?></strong>
-                                </div>
-                            </div>
-                            <div class="payment-success-actions">
-                                <a href="../order.php" class="order-btn ghost">Xem đơn</a>
-                                <a href="../index.php" class="order-btn primary">Tiếp tục đặt món</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            <?php else: ?>
-                <div class="order-alert <?= $message_type === 'error' ? 'error' : 'success' ?>">
-                    <?= htmlspecialchars($message) ?>
-                </div>
             <?php endif; ?>
         <?php endif; ?>
 
@@ -189,6 +157,28 @@ $selectedMethod = $paymentDetails["method"] ?? "Cash";
                 </select>
                 <button type="submit" class="order-btn primary">Confirm</button>
             </form>
+        <?php endif; ?>
+
+        <?php if ($message && $paymentDetails): ?>
+            <?php $paidAtLabel = !empty($paymentDetails["paid_at"]) ? date("H:i d/m/Y", strtotime($paymentDetails["paid_at"])) : ""; ?>
+            <div class="order-card" style="margin-top:12px; max-width:560px; margin-left:auto; margin-right:auto;">
+                <div class="order-card-body">
+                    <div class="order-card-head" style="margin-bottom:8px;">
+                        <h3>Thanh toán hoàn tất</h3>
+                    </div>
+                    <p class="order-meta"><?= htmlspecialchars($message) ?></p>
+                    <div class="payment-success-grid">
+                        <div><span class="payment-success-label">Đơn hàng</span><br><strong><?= htmlspecialchars($order["order_code"] ?? ("OD-" . $orderId)) ?></strong></div>
+                        <div><span class="payment-success-label">Tổng tiền</span><br><strong><?= number_format($order["total_amount"] ?? 0) ?>đ</strong></div>
+                        <div><span class="payment-success-label">Phương thức</span><br><strong><?= htmlspecialchars($paymentDetails["method"] ?? "N/A") ?></strong></div>
+                        <div><span class="payment-success-label">Trạng thái</span><br><strong><?= htmlspecialchars($paymentDetails["status"] ?? "Paid") ?></strong></div>
+                        <div><span class="payment-success-label">Thời gian</span><br><strong><?= htmlspecialchars($paidAtLabel ?: "Vừa xong") ?></strong></div>
+                    </div>
+                    <div class="payment-success-actions" style="margin-top:10px;">
+                        <a href="../index.php" class="order-btn primary">Tiếp tục đặt món</a>
+                    </div>
+                </div>
+            </div>
         <?php endif; ?>
     </div>
 </body>

@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = "Vui lòng nhập đầy đủ tài khoản và mật khẩu.";
     } else {
         // Lấy user theo username
-        $stmt = $conn->prepare("SELECT id, username, password FROM user WHERE username = ?");
+        $stmt = $conn->prepare("SELECT id, username, password FROM users WHERE username = ?");
         if (!$stmt) {
             die("Lỗi prepare: " . $conn->error);
         }
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 // Lưu token vào DB
-                $upd = $conn->prepare("UPDATE user SET auth_token = ? WHERE id = ?");
+                $upd = $conn->prepare("UPDATE users SET auth_token = ? WHERE id = ?");
                 if (!$upd) {
                     die("Lỗi prepare (update): " . $conn->error);
                 }
@@ -64,7 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['username'] = $user['username'];
 
                 // Chuyển sang trang chính
-                header("Location: index.php");
+                $isAdmin = (strtolower($user['username']) === 'admin');
+                header("Location: " . ($isAdmin ? "admin/menu.php" : "index.php"));
                 exit();
             } else {
                 $message = "Sai mật khẩu.";

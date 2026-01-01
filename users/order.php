@@ -4,12 +4,57 @@ include("../connection.php");
 
 $message = null;
 $message_type = "success";
+$orderCode = null;
 
 // Load available food
 $foods = [];
 $foodStmt = $conn->query("SELECT id, name, price, category, description, image_path FROM food WHERE is_available = 1 ORDER BY created_at DESC");
 if ($foodStmt) {
     while ($row = $foodStmt->fetch_assoc()) $foods[] = $row;
+}
+
+// Latest order status for the current user
+$latestOrder = null;
+$orderStatusLabel = null;
+if (isset($current_user["id"])) {
+    $os = $conn->prepare("
+        SELECT order_code, status, created_at
+        FROM orders
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 1
+    ");
+    if ($os) {
+        $os->bind_param("i", $current_user["id"]);
+        $os->execute();
+        $res = $os->get_result();
+        if ($res && $res->num_rows === 1) {
+            $latestOrder = $res->fetch_assoc();
+            $orderStatusLabel = $latestOrder["status"] ?? null;
+        }
+        $os->close();
+    }
+}
+
+// List recent orders for this user
+$recentOrders = [];
+if (isset($current_user["id"])) {
+    $ls = $conn->prepare("
+        SELECT id, order_code, total_amount, status, order_type, address, created_at
+        FROM orders
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 10
+    ");
+    if ($ls) {
+        $ls->bind_param("i", $current_user["id"]);
+        $ls->execute();
+        $res = $ls->get_result();
+        if ($res) {
+            while ($row = $res->fetch_assoc()) $recentOrders[] = $row;
+        }
+        $ls->close();
+    }
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -98,11 +143,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <header class="order-header">
             <div>
                 <p class="order-kicker">Khách hàng</p>
-                <h1>Chọn món & đặt đơn</h1>
-                <p class="order-sub">Chọn số lượng món, chọn loại đơn và địa chỉ giao.</p>
+                <h1>Chọn món & Đặt đơn</h1>
+                <p class="order-sub">Chọn số lượng món ăn, hệ thống sẽ tự tính tổng và tạo đơn hàng.</p>
             </div>
             <div class="order-actions">
-                <a href="../index.php" class="order-btn ghost">Trang chủ</a>
+                <a href="../index.php" class="order-btn ghost">Về trang chủ</a>
                 <a href="payment.php" class="order-btn ghost">Payment</a>
                 <a href="../logout.php" class="order-btn danger">Đăng xuất</a>
             </div>
@@ -113,15 +158,28 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <?= htmlspecialchars($message) ?>
             </div>
         <?php endif; ?>
+        <?php if ($latestOrder): ?>
+            <div class="order-alert info" style="background:#fff; border-color:#d1d5db; color:#0f172a;">
+                Đơn gần nhất: <?= htmlspecialchars($latestOrder["order_code"] ?? "") ?> - Trạng thái: <?= htmlspecialchars($orderStatusLabel ?? "") ?>
+            </div>
+        <?php endif; ?>
 
         <form method="post" class="order-form">
             <div class="order-grid">
                 <?php foreach ($foods as $food): ?>
-                    <div class="order-card order-card-simple">
+                    <div class="order-card">
+                        <?php if (!empty($food["image_path"])): ?>
+                            <img src="../<?= htmlspecialchars($food["image_path"]) ?>" class="order-img" alt="<?= htmlspecialchars($food["name"]) ?>">
+                        <?php else: ?>
+                            <div class="order-img placeholder">No image</div>
+                        <?php endif; ?>
                         <div class="order-card-body">
                             <div class="order-card-head">
                                 <h3><?= htmlspecialchars($food["name"]) ?></h3>
+                                <span class="order-price"><?= number_format($food["price"]) ?>đ</span>
                             </div>
+                            <p class="order-meta"><?= htmlspecialchars($food["category"] ?? "") ?></p>
+                            <p class="order-desc"><?= htmlspecialchars($food["description"] ?? "") ?></p>
                             <label class="order-qty-label">
                                 Số lượng
                                 <input type="number" name="qty[<?= (int)$food["id"] ?>]" min="0" max="99" value="0" class="order-qty-input" data-price="<?= htmlspecialchars($food["price"]) ?>">
@@ -137,7 +195,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     <select name="order_type" class="order-qty-input" style="width:140px;">
                         <option value="Pickup">Pickup</option>
                         <option value="Delivery">Delivery</option>
-                        <option value="Dine-in">Dine-in</option>
                     </select>
                 </label>
                 <label class="order-qty-label" style="width:100%;">

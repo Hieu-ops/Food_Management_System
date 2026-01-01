@@ -2,19 +2,59 @@
 include("connection.php");
 $message = "";
 
+function ensure_users_phone_column(mysqli $conn): void {
+    try {
+        $sql = "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'phone' LIMIT 1";
+        $res = $conn->query($sql);
+        $exists = $res && $res->num_rows > 0;
+        if (!$exists) {
+            $conn->query("ALTER TABLE users ADD COLUMN phone VARCHAR(32) NULL");
+        }
+    } catch (Throwable $e) {
+    
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = trim($_POST['username'] ?? '');
+    $rawPassword = $_POST['password'] ?? '';
+    $phone = trim($_POST['phone'] ?? '');
 
-  $username = $_POST['username'];
-  $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+    if ($username === '' || $rawPassword === '') {
+        $message = "Vui long nhap du thong tin.";
+    } else {
+        $password = password_hash($rawPassword, PASSWORD_DEFAULT);
+        ensure_users_phone_column($conn);
 
-  $check = $conn->query("SELECT * FROM user WHERE username='$username'");
+        $check = $conn->prepare("SELECT id FROM users WHERE username = ?");
+        $check->bind_param("s", $username);
+        $check->execute();
+        $checkRes = $check->get_result();
 
-  if ($check->num_rows > 0) {
-    $message = "Tài khoản đã tồn tại!";
-  } else {
-    $conn->query("INSERT INTO user (username, password) VALUES ('$username', '$password')");
-    $message = "Đăng ký thành công. <a href='login.php'>Đăng nhập</a>";
-  }
+        if ($checkRes && $checkRes->num_rows > 0) {
+            $message = "Tai khoan da ton tai!";
+        } else {
+            $hasPhone = false;
+            try {
+                $colCheck = $conn->query("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'phone' LIMIT 1");
+                $hasPhone = $colCheck && $colCheck->num_rows > 0;
+            } catch (Throwable $e) {
+                $hasPhone = false;
+            }
+
+            if ($hasPhone) {
+                $stmt = $conn->prepare("INSERT INTO users (username, password, phone) VALUES (?, ?, ?)");
+                $stmt->bind_param("sss", $username, $password, $phone);
+            } else {
+                $stmt = $conn->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+                $stmt->bind_param("ss", $username, $password);
+            }
+
+            $stmt->execute();
+            $stmt->close();
+            $message = "Dang ky thanh cong. <a href='login.php'>Dang nhap</a>";
+        }
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -49,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <form method="POST" class="register-form">
       <input type="text" name="username" placeholder="Username" class="register-input" required>
+      <input type="text" name="phone" placeholder="Phone number" class="register-input">
       <input type="password" name="password" placeholder="Password" class="register-input" required>
       <button type="submit" class="register-btn">REGISTER</button>
     </form>
