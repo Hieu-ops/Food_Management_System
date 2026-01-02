@@ -1,51 +1,123 @@
 <?php
-include("check_admin.php");
-include("../connection.php");
+declare(strict_types=1);
+
+require_once __DIR__ . "/check_admin.php";
+require_once __DIR__ . "/../connection.php";
 
 $message = null;
 $message_type = "success";
 
-// Xóa người dùng và các bản ghi liên quan
+function fail(string $msg): void {
+    global $message, $message_type;
+    $message = $msg;
+    $message_type = "error";
+}
+
+/**
+ * Delete user + related records (optimized):
+ * - Use transaction for consistency
+ * - Use set-based DELETE with JOIN/IN instead of loop queries
+ * - Use prepared statements
+ */
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["delete_user"])) {
-    $userId = intval($_POST["delete_user"]);
+    $userId = filter_input(INPUT_POST, "delete_user", FILTER_VALIDATE_INT);
 
-    // Xóa các bản ghi liên quan đến đơn hàng của user
-    $ordersRes = $conn->prepare("SELECT id FROM orders WHERE user_id = ?");
-    $ordersRes->bind_param("i", $userId);
-    $ordersRes->execute();
-    $orders = $ordersRes->get_result()->fetch_all(MYSQLI_ASSOC);
-    $ordersRes->close();
+    if (!$userId || $userId <= 0) {
+        fail("User ID không hợp lệ.");
+    } else {
+        $conn->begin_transaction();
+        try {
+            // order_status_logs
+            $stmt = $conn->prepare("
+                DELETE osl
+                FROM order_status_logs osl
+                INNER JOIN orders o ON o.id = osl.order_id
+                WHERE o.user_id = ?
+            ");
+            if (!$stmt) throw new Exception("Prepare failed");
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $stmt->close();
 
-    foreach ($orders as $o) {
-        $oid = intval($o["id"]);
-        $conn->query("DELETE FROM order_status_logs WHERE order_id = $oid");
-        $conn->query("DELETE FROM order_items WHERE order_id = $oid");
-        $conn->query("DELETE FROM payments WHERE order_id = $oid");
-        $conn->query("DELETE FROM admin_actions WHERE order_id = $oid");
+            // order_items
+            $stmt = $conn->prepare("
+                DELETE oi
+                FROM order_items oi
+                INNER JOIN orders o ON o.id = oi.order_id
+                WHERE o.user_id = ?
+            ");
+            if (!$stmt) throw new Exception("Prepare failed");
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $stmt->close();
+
+            // payments
+            $stmt = $conn->prepare("
+                DELETE p
+                FROM payments p
+                INNER JOIN orders o ON o.id = p.order_id
+                WHERE o.user_id = ?
+            ");
+            if (!$stmt) throw new Exception("Prepare failed");
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $stmt->close();
+
+            // admin_actions
+            $stmt = $conn->prepare("
+                DELETE aa
+                FROM admin_actions aa
+                INNER JOIN orders o ON o.id = aa.order_id
+                WHERE o.user_id = ?
+            ");
+            if (!$stmt) throw new Exception("Prepare failed");
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $stmt->close();
+
+            // orders
+            $stmt = $conn->prepare("DELETE FROM orders WHERE user_id = ?");
+            if (!$stmt) throw new Exception("Prepare failed");
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $stmt->close();
+
+            // users
+            $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+            if (!$stmt) throw new Exception("Prepare failed");
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $affected = $stmt->affected_rows;
+            $stmt->close();
+
+            $conn->commit();
+
+            if ($affected > 0) {
+                $message = "Đã xóa người dùng #{$userId} và dữ liệu liên quan.";
+            } else {
+                $message = "Không tìm thấy người dùng #{$userId}.";
+            }
+        } catch (Throwable $e) {
+            $conn->rollback();
+            fail("Xóa thất bại, vui lòng thử lại.");
+        }
     }
-    $conn->query("DELETE FROM orders WHERE user_id = $userId");
-
-    $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
-    $stmt->bind_param("i", $userId);
-    $stmt->execute();
-    $stmt->close();
-
-    $message = "Đã xóa người dùng #$userId và dữ liệu liên quan.";
 }
 
 $users = [];
-// Một số DB chỉ có cột username, không có name/phone/email
-$userRes = $conn->query("SELECT id, username, created_at FROM users ORDER BY created_at DESC");
-if ($userRes) {
-    while ($row = $userRes->fetch_assoc()) {
+$stmt = $conn->prepare("SELECT id, username, created_at FROM users ORDER BY created_at DESC");
+if ($stmt && $stmt->execute()) {
+    $res = $stmt->get_result();
+    while ($row = $res->fetch_assoc()) {
         $users[] = [
-            "id" => $row["id"],
-            "name" => $row["username"] ?? "",
+            "id" => (int)($row["id"] ?? 0),
+            "name" => (string)($row["username"] ?? ""),
             "phone" => "",
             "email" => "",
-            "created_at" => $row["created_at"] ?? "",
+            "created_at" => (string)($row["created_at"] ?? ""),
         ];
     }
+    $stmt->close();
 }
 ?>
 <!DOCTYPE html>
